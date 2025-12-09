@@ -70,10 +70,12 @@ class ConnectWiseAPIClient:
     # --------------------------
     # GET TICKETS
     # --------------------------
-    def get_tickets(self, conditions=None, page=1, page_size=100,
+    def get_tickets(self, conditions=None, page=1, page_size=25,
                     order_by=None, expand=None, fields=None):
+
         url = f"{self.base_url}/service/tickets"
 
+        # Everything except conditions can be safely encoded
         params = {
             "page": page,
             "pageSize": page_size,
@@ -83,17 +85,14 @@ class ConnectWiseAPIClient:
                 "id,"
                 "summary,"
                 "owner/identifier,"
-                "assignedMember/identifier,"
-                "member/identifier,"
-                "resources/member/identifier,"
+                "status/name,"
                 "board/name,"
                 "team/name,"
-                "status/name"
+                "lastUpdated"
             )
+
         }
 
-        if conditions:
-            params["conditions"] = conditions
         if order_by:
             params["orderBy"] = order_by
         if expand:
@@ -101,7 +100,15 @@ class ConnectWiseAPIClient:
         if fields:
             params["fields"] = fields
 
-        response = requests.get(url, headers=self.headers, auth=self.auth, params=params)
-        response.raise_for_status()
+        # Build the URL manually to avoid encoding conditions
+        if conditions:
+            # DO NOT LET requests ENCODE PARENTHESES
+            query = requests.models.RequestEncodingMixin._encode_params(params)
+            url = f"{url}?{query}&conditions={conditions}"
+            response = requests.get(url, headers=self.headers, auth=self.auth)
+        else:
+            response = requests.get(url, headers=self.headers, auth=self.auth, params=params)
 
+        response.raise_for_status()
         return response.json()
+

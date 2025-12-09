@@ -20,6 +20,9 @@ class App:
 
         tk.Button(root, text="Search", command=self.start_search).pack()
 
+        self.duration_label = tk.Label(root, text="", fg="gray")
+        self.duration_label.pack()
+
         # Use the separate progress indicator class
         self.progress = ProgressIndicator(root)
 
@@ -35,7 +38,8 @@ class App:
         username = self.user_entry.get().strip()
 
         try:
-            tickets = self.ticket_service.get_tickets_for_user(username)
+            tickets, duration_ms = self.ticket_service.get_tickets_for_user(username)
+            self.duration_label.config(text=f"Query time: {duration_ms} ms")
 
         except Exception as e:
             # Capture "e" safely inside lambda
@@ -79,4 +83,3 @@ class App:
                 )
 
         self.root.after(0, update_output)
-

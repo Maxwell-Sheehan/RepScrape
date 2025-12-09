@@ -1,6 +1,5 @@
 import json
-
-#remember import json
+from timer import Timer
 
 class TicketService:
     """Business logic for filtering and working with tickets."""
@@ -13,13 +12,15 @@ class TicketService:
         Returns tickets where owner.identifier matches the username
         (case-insensitive, whitespace trimmed).
         """
-        username = username.strip()  # remove extra whitespace
+        username = username.strip()
 
         # ConnectWise 'contains' handles partial matches & case insensitivity
         conditions = f"owner/identifier contains \"{username}\""
 
-        # Pull tickets with server-side filtering (fast)
-        tickets = self.api.get_tickets(conditions=conditions)
+        # ---- ADDED TIMER (minimal change) ----
+        with Timer() as t:
+            tickets = self.api.get_tickets(conditions=conditions)
+        # --------------------------------------
 
-        # Return the newest 10
-        return tickets[:10]
+        # Return newest 10 + timing
+        return tickets[:10], t.ms()
