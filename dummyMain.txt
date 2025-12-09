@@ -1,0 +1,22 @@
+import tkinter as tk
+from ConnectWiseApi import ConnectWiseAPIClient
+from App import App
+
+# Authors: Weiping, Shane, and Max
+
+if __name__ == "__main__":
+    username = "username"
+    password = "password"
+    client_id = "client_id"
+
+    # Build the API client
+    api_client = ConnectWiseAPIClient(
+        username=username,
+        password=password,
+        client_id=client_id,
+    )
+
+    # Start the GUI
+    root = tk.Tk()
+    App(root, api_client)
+    root.mainloop()
