@@ -23,8 +23,8 @@ class App:
         # Use the separate progress indicator class
         self.progress = ProgressIndicator(root)
 
-        self.output_box = tk.Text(root, width=80, height=20)
-        self.output_box.pack()
+        self.output_box = tk.Text(root, width=120, height=25)
+        self.output_box.pack(expand=True, fill="both")
 
     def start_search(self):
         self.output_box.delete("1.0", tk.END)
@@ -66,15 +66,17 @@ class App:
 
                 self.output_box.insert(
                     tk.END,
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"Ticket #{tid}\n"
-                    f"Summary: {summary}\n"
-                    f"Owner: {owner}\n"
-                    f"Status: {status}\n"
-                    f"Board: {board}\n"
-                    f"Team: {team}\n"
-                    f"Last Updated: {updated}\n"
-                    f"Link: {ticket_link}\n"
-                    f"{'-' * 80}\n"
+                    f"Summary      : {summary}\n"
+                    f"Owner        : {owner}\n"
+                    f"Status       : {status}\n"
+                    f"Board        : {board}\n"
+                    f"Team         : {team}\n"
+                    f"Last Updated : {updated}\n"
+                    f"Link         : {ticket_link}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
                 )
+
         self.root.after(0, update_output)
 
