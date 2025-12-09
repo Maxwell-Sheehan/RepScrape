@@ -5,7 +5,7 @@ from TicketService import TicketService
 from ProgressIndicator import ProgressIndicator
 import json
 
-# Main App
+#don't forget the libraries
 class App:
     def __init__(self, root, api_client):
         self.root = root
@@ -36,11 +36,14 @@ class App:
 
         try:
             tickets = self.ticket_service.get_tickets_for_user(username)
+
         except Exception as e:
-            self.root.after(0, lambda: self.output_box.insert(tk.END, f"Error: {e}\n"))
+            # Capture "e" safely inside lambda
+            self.root.after(0, lambda err=e: self.output_box.insert(tk.END, f"Error: {err}\n"))
             self.root.after(0, self.progress.stop)
             return
 
+        # ------- INSIDE search_tickets --------
         def update_output():
             self.progress.stop()
             self.output_box.insert(tk.END, f"Tickets for '{username}':\n\n")
@@ -49,10 +52,29 @@ class App:
                 self.output_box.insert(tk.END, "No tickets found.\n")
                 return
 
-            for t in tickets[:10]:
+            for t in tickets[:25]:
                 tid = t.get("id", "N/A")
                 summary = t.get("summary", "")
                 owner = t.get("owner", {}).get("identifier", "")
-                self.output_box.insert(tk.END, f"#{tid} - {summary} (Owner: {owner})\n")
+                status = t.get("status", {}).get("name", "")
+                board = t.get("board", {}).get("name", "")
+                team = t.get("team", {}).get("name", "")
+                updated = t.get("lastUpdated", "")
 
+                # Replace YOUR_CONNECTWISE_URL
+                ticket_link = f"https://<YOUR_URL>/ConnectWise.aspx?routeTo=Ticket/{tid}"
+
+                self.output_box.insert(
+                    tk.END,
+                    f"Ticket #{tid}\n"
+                    f"Summary: {summary}\n"
+                    f"Owner: {owner}\n"
+                    f"Status: {status}\n"
+                    f"Board: {board}\n"
+                    f"Team: {team}\n"
+                    f"Last Updated: {updated}\n"
+                    f"Link: {ticket_link}\n"
+                    f"{'-' * 80}\n"
+                )
         self.root.after(0, update_output)
+
