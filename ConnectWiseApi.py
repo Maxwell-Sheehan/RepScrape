@@ -78,11 +78,14 @@ class ConnectWiseAPIClient:
             "page": page,
             "pageSize": page_size,
             "orderBy": "lastUpdated DESC",
-            "expand": "owner,board,team",
+            "expand": "owner,board,team,assignedMember,member,resources",
             "fields": (
                 "id,"
                 "summary,"
                 "owner/identifier,"
+                "assignedMember/identifier,"
+                "member/identifier,"
+                "resources/member/identifier,"
                 "board/name,"
                 "team/name,"
                 "status/name"

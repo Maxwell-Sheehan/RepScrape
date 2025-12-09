@@ -35,7 +35,7 @@ class App:
         username = self.user_entry.get().strip()
 
         try:
-            tickets = self.ticket_service.search_tickets(owner=username)
+            tickets = self.ticket_service.get_tickets_for_user(username)
         except Exception as e:
             self.root.after(0, lambda: self.output_box.insert(tk.END, f"Error: {e}\n"))
             self.root.after(0, self.progress.stop)
