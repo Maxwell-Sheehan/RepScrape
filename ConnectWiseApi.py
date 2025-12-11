@@ -76,6 +76,39 @@ class ConnectWiseAPIClient:
         return response.json()
 
     # --------------------------
+    # GET TICKETS BY COMPANY
+    # --------------------------
+    def get_tickets_by_company(self, company_identifier, extra_conditions=None,
+                               page=1, page_size=25, order_by=None):
+        """
+        Search tickets that belong to a specific company.
+        extra_conditions can be something like:
+            "status/name='New'" OR "owner/identifier='max'"
+        """
+
+        # 1) Look up company → get ID
+        company = self.get_company(company_identifier)
+        company_id = company["id"]
+
+        # 2) Build the CW condition string
+        base_condition = f"company/id={company_id}"
+
+        if extra_conditions:
+            # Combine using AND
+            condition_string = f"{base_condition} AND ({extra_conditions})"
+        else:
+            condition_string = base_condition
+
+        # 3) Reuse your existing ticket call
+        return self.get_tickets(
+            conditions=condition_string,
+            page=page,
+            page_size=page_size,
+            order_by=order_by
+        )
+
+
+    # --------------------------
     # GET STATUSES FOR A BOARD
     # --------------------------
     def get_statuses(self, board_id):
@@ -100,7 +133,9 @@ class ConnectWiseAPIClient:
             "page": page,
             "pageSize": page_size,
             "orderBy": "lastUpdated DESC" if not order_by else order_by,
-            "expand": "owner,board,team,assignedMember,member,resources" if not expand else expand,
+            "expand": (
+                "owner,board,team,assignedMember,member,resources,company"
+            ) if not expand else expand,  # ← ★ minimal required change
             "fields": (
                 "id,"
                 "summary,"
@@ -108,6 +143,8 @@ class ConnectWiseAPIClient:
                 "status/name,"
                 "board/name,"
                 "team/name,"
+                "company/name,"
+                "company/identifier,"
                 "lastUpdated"
             ) if not fields else fields
         }
@@ -122,7 +159,6 @@ class ConnectWiseAPIClient:
 
         # Build the URL manually to avoid encoding conditions
         if conditions:
-            # DO NOT LET requests ENCODE PARENTHESES
             query = requests.models.RequestEncodingMixin._encode_params(params)
             url = f"{url}?{query}&conditions={conditions}"
             response = requests.get(url, headers=self.headers, auth=self.auth)
