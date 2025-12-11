@@ -20,65 +20,59 @@ class AppSidebarDark:
         self.ticket_service = TicketService(api_client)
         self.status_service = TicketStatusService(api_client)
 
-        # root config
         self.root.title("ConnectWise Ticket Viewer")
         self.root.configure(bg=DARK_BG)
 
-        # style tweaks for ttk
+        # Board → Status Mapping
+        self.board_status_map = {
+            "MNS Config":[
+                "Pending Allocation",
+                "Rejected",
+                "Reject Resolved",
+                "Assigned",
+                "Unassigned",
+                "New",
+                "Ready to Configure",
+                "Equipment configure",
+                "Closed",
+                "Cancelled"
+            ],
+                "MNS Activations":[
+                "Cancelled",
+                "Fail",
+                "Open",
+                "Partial Success",
+                "Pending Coverage",
+                "Rejected",
+                "Scheduled",
+                "Success"
+                ]
+
+            }
+
+
+
+        # ttk styles
         style = ttk.Style()
         style.theme_use('clam')
         style.configure("TButton", background=ACCENT, foreground=DARK_TEXT)
         style.configure("TLabel", background=DARK_BG, foreground=DARK_TEXT)
         style.configure("TFrame", background=DARK_PANEL)
-        style.configure(
-            "TCombobox",
-            fieldbackground=DARK_PANEL,
-            background=DARK_PANEL,
-            foreground=DARK_TEXT,
-            relief="flat"
-        )
+        style.configure("TCombobox", fieldbackground=DARK_PANEL, background=DARK_PANEL,
+                        foreground=DARK_TEXT, relief="flat")
 
-        # --- Custom style for the LIMIT combobox (the blue textbox look) ---
-        style.configure(
-            "LimitCombo.TCombobox",
-            fieldbackground="#2b4d6e",  # bluish background
-            background="#2b4d6e",
-            foreground="white",
-            arrowcolor="white",
-            selectbackground="#1e3a56",
-            selectforeground="white",
-        )
-
-        # ---------- layout frames ----------
+        # Layout
         self.sidebar = tk.Frame(root, bg=DARK_PANEL, width=320, padx=12, pady=12)
         self.sidebar.pack(side="left", fill="y")
 
         self.main = tk.Frame(root, bg=DARK_BG, padx=8, pady=8)
         self.main.pack(side="right", fill="both", expand=True)
 
-        # ---------------------------------------------------------
-        #                   SIDEBAR CONTENT
-        # ---------------------------------------------------------
-
-        # --- Max Tickets (Global) ---
-        ttk.Label(self.sidebar, text="Max Tickets (Global)", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0,4))
-
-        self.limit_var = tk.IntVar(value=25)
-        self.limit_combo = ttk.Combobox(
-            self.sidebar,
-            textvariable=self.limit_var,
-            values=[10, 25, 50, 100],
-            state="readonly",
-            width=14,
-            font=("Segoe UI", 11),
-            style="LimitCombo.TCombobox"
-        )
-
-        self.limit_combo.pack(fill="x", pady=(0, 14))
-
-        # --- Unified Ticket Search ---
-        ttk.Label(self.sidebar, text="Unified Ticket Search", font=("Segoe UI", 11, "bold")).pack(anchor="w",
-                                                                                                  pady=(0, 6))
+        # --------------------------------------
+        # Sidebar Widgets
+        # --------------------------------------
+        ttk.Label(self.sidebar, text="Unified Search", font=("Segoe UI", 12, "bold"))\
+            .pack(anchor="w", pady=(0, 10))
 
         # Company
         ttk.Label(self.sidebar, text="Company").pack(anchor="w")
@@ -94,101 +88,42 @@ class AppSidebarDark:
 
         # Board
         ttk.Label(self.sidebar, text="Board").pack(anchor="w")
-        self.board_entry = tk.Entry(self.sidebar, bg="#33373b", fg=DARK_TEXT, insertbackground=DARK_TEXT,
-                                    font=("Segoe UI", 11))
+        self.board_var = tk.StringVar()
+        self.board_entry = ttk.Combobox(self.sidebar, textvariable=self.board_var,
+                                        values=["MNS Config", "MNS Activations"], state="readonly",
+                                        font=("Segoe UI", 11))
         self.board_entry.pack(fill="x", pady=(0, 6))
+        self.board_entry.bind("<<ComboboxSelected>>", self._update_status_dropdown)
 
         # Status
         ttk.Label(self.sidebar, text="Status").pack(anchor="w")
-        self.status_entry = tk.Entry(self.sidebar, bg="#33373b", fg=DARK_TEXT, insertbackground=DARK_TEXT,
-                                     font=("Segoe UI", 11))
+        self.status_var = tk.StringVar()
+        self.status_entry = ttk.Combobox(self.sidebar, textvariable=self.status_var,
+                                         values=[], state="readonly", font=("Segoe UI", 11))
         self.status_entry.pack(fill="x", pady=(0, 10))
 
-        ttk.Button(self.sidebar, text="Search Tickets", command=self.start_unified_search).pack(fill="x", pady=(6, 14))
+        # Search button (NEW)
+        self.search_button = ttk.Button(self.sidebar, text="Search", command=self.start_unified_search)
+        self.search_button.pack(fill="x", pady=(10, 10))
 
-        ttk.Separator(self.sidebar, orient="horizontal").pack(fill="x", pady=8)
-
-        # small footer info
+        # Duration
         self.duration_label = ttk.Label(self.sidebar, text="")
-        self.duration_label.pack(anchor="w", pady=(6,0))
+        self.duration_label.pack(anchor="w", pady=(6, 0))
 
-        # ---------- Company search ----------
-        def start_company_search(self):
-            self.output_box.delete("1.0", tk.END)
-            self.progress.start()
-            Thread(target=self._search_company, daemon=True).start()
-
-        def _search_company(self):
-            company = self.company_entry.get().strip()
-            limit = int(self.limit_var.get() or 25)
-
-            try:
-                tickets, duration = self.ticket_service.get_tickets_for_company(
-                    company_identifier=company,
-                    limit=limit
-                )
-                self.root.after(0, lambda: self.duration_label.config(text=f"Query time: {duration} ms"))
-                label = f"Company='{company}'"
-                self.root.after(0, lambda: self.display_tickets(tickets, label))
-
-            except Exception as e:
-                self.root.after(0, lambda: self.output_box.insert(tk.END, f"Error: {e}\n"))
-                self.root.after(0, self.progress.stop)
-
-        # ---------- Main content ----------
+        # Main output
         self.progress = ProgressIndicator(self.main)
-        self.output_box = tk.Text(
-            self.main,
-            bg="#111316",
-            fg=DARK_TEXT,
-            insertbackground=DARK_TEXT,
-            wrap="word"
-        )
+        self.output_box = tk.Text(self.main, bg="#111316", fg=DARK_TEXT,
+                                  insertbackground=DARK_TEXT, wrap="word", padx=8, pady=8)
         self.output_box.pack(fill="both", expand=True)
-        self.output_box.config(padx=8, pady=8)
 
-    # ---------- Username search ----------
-    def start_user_search(self):
-        self.output_box.delete("1.0", tk.END)
-        self.progress.start()
-        Thread(target=self._search_user, daemon=True).start()
+    # -------- Update dropdown --------
+    def _update_status_dropdown(self, event=None):
+        board = self.board_var.get()
+        statuses = self.board_status_map.get(board, [])
+        self.status_entry["values"] = statuses
+        self.status_var.set("")
 
-    def _search_user(self):
-        username = self.user_entry.get().strip()
-        limit = int(self.limit_var.get() or 25)
-        try:
-            tickets, duration = self.ticket_service.get_tickets_for_user(username, limit=limit)
-            self.root.after(0, lambda: self.duration_label.config(text=f"Query time: {duration} ms"))
-            label = f"Tickets for '{username}'"
-            self.root.after(0, lambda: self.display_tickets(tickets, label))
-        except Exception as e:
-            self.root.after(0, lambda: self.output_box.insert(tk.END, f"Error: {e}\n"))
-            self.root.after(0, self.progress.stop)
-
-    # ---------- Board/status search ----------
-    def start_status_search(self):
-        self.output_box.delete("1.0", tk.END)
-        self.progress.start()
-        Thread(target=self._search_status, daemon=True).start()
-
-    def _search_status(self):
-        board = self.board_entry.get().strip() or None
-        status = self.status_entry.get().strip() or None
-        limit = int(self.limit_var.get() or 25)
-        try:
-            tickets, duration = self.status_service.get_tickets_by_status(
-                board_name=board,
-                status_name=status,
-                limit=limit
-            )
-            self.root.after(0, lambda: self.duration_label.config(text=f"Query time: {duration} ms"))
-            label = f"Board='{board}', Status='{status}'"
-            self.root.after(0, lambda: self.display_tickets(tickets, label))
-        except Exception as e:
-            self.root.after(0, lambda: self.output_box.insert(tk.END, f"Error: {e}\n"))
-            self.root.after(0, self.progress.stop)
-
-    # ---------- Unified search ----------
+    # -------- Unified Search --------
     def start_unified_search(self):
         self.output_box.delete("1.0", tk.END)
         self.progress.start()
@@ -199,49 +134,31 @@ class AppSidebarDark:
         username = self.user_entry.get().strip()
         board = self.board_entry.get().strip()
         status = self.status_entry.get().strip()
-        limit = int(self.limit_var.get() or 25)
+
+        conditions = []
+        if company:
+            conditions.append(f'(company/name contains "{company}" OR company/identifier contains "{company}")')
+        if username:
+            conditions.append(f'owner/identifier contains "{username}"')
+        if board:
+            conditions.append(f'board/name="{board}"')
+        if status:
+            conditions.append(f'status/name="{status}"')
+
+        full_conditions = " AND ".join(conditions) if conditions else None
 
         try:
-            # Build conditions for unified ConnectWise query
-            conditions = []
+            tickets = self.api_client.get_tickets(conditions=full_conditions, page=1, page_size=50)
 
-            if company:
-                conditions.append(
-                    f'(company/identifier contains "{company}" '
-                    f'OR company/name contains "{company}")'
-                )
-
-            if username:
-                conditions.append(f'owner/identifier contains "{username}"')
-
-            if board:
-                conditions.append(f'board/name="{board}"')
-
-            if status:
-                conditions.append(f'status/name="{status}"')
-
-            full_conditions = " AND ".join(conditions) if conditions else None
-
-            # Call CW API
-            tickets = self.api_client.get_tickets(
-                conditions=full_conditions,
-                page=1,
-                page_size=limit
-            )
-
-            # Display results
             self.root.after(0, lambda: self.display_tickets(tickets, "Unified Search"))
             self.root.after(0, lambda: self.duration_label.config(text=f"Results: {len(tickets)} tickets"))
-            self.root.after(0, self.progress.stop)
-
         except Exception as e:
             self.root.after(0, lambda: self.output_box.insert(tk.END, f"Error: {e}\n"))
+        finally:
             self.root.after(0, self.progress.stop)
 
-
-    # ---------- Render tickets ----------
+    # -------- Ticket Renderer --------
     def display_tickets(self, tickets, header_label):
-        self.progress.stop()
         self.output_box.insert(tk.END, f"Results for {header_label}:\n\n")
 
         if not tickets:
@@ -252,14 +169,14 @@ class AppSidebarDark:
             tid = t.get("id", "N/A")
             summary = t.get("summary", "")
             owner = t.get("owner", {}).get("identifier", "")
+            company = t.get("company", {}).get("name", "")
+            company_id = t.get("company", {}).get("identifier", "")
             status = t.get("status", {}).get("name", "")
             board = t.get("board", {}).get("name", "")
             team = t.get("team", {}).get("name", "")
-            company = t.get("company", {}).get("name", "")
-            company_identifier = t.get("company", {}).get("identifier", "")
             updated = t.get("lastUpdated", "")
 
-            ticket_link = f"https://<YOUR_URL>/ConnectWise.aspx?routeTo=Ticket/{tid}"
+            link = f"https://<YOUR_URL>/ConnectWise.aspx?routeTo=Ticket/{tid}"
 
             self.output_box.insert(
                 tk.END,
@@ -267,12 +184,11 @@ class AppSidebarDark:
                 f"Ticket # {tid}\n"
                 f"Summary      : {summary}\n"
                 f"Owner        : {owner}\n"
-                f"Company      : {company} ({company_identifier})\n"
+                f"Company      : {company} ({company_id})\n"
                 f"Status       : {status}\n"
                 f"Board        : {board}\n"
                 f"Team         : {team}\n"
                 f"Last Updated : {updated}\n"
-                f"Link         : {ticket_link}\n"
+                f"Link         : {link}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             )
-
