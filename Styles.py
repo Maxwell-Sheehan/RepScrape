@@ -1,4 +1,5 @@
 # styles.py
+import tkinter as tk
 from tkinter import ttk
 
 # ---------- Simple dark palette ----------
@@ -30,3 +31,22 @@ def apply_styles():
                     background=DARK_PANEL,
                     foreground=DARK_TEXT,
                     relief="flat")
+
+def create_page_size_dropdown(parent):
+    """
+    Creates a standardized 'Page Size' label + combobox using global styles.
+    Returns (label_widget, combobox_widget, variable_reference).
+    """
+    label = ttk.Label(parent, text="Page Size")
+
+    var = tk.IntVar(value=50)
+
+    box = ttk.Combobox(
+        parent,
+        textvariable=var,
+        values=[50, 150, 250],
+        state="readonly",
+        font=("Segoe UI", 11)
+    )
+
+    return label, box, var
