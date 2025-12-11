@@ -1,5 +1,3 @@
-# TicketStatusService.py
-
 from timer import Timer
 
 class TicketStatusService:
@@ -34,6 +32,11 @@ class TicketStatusService:
         conditions = " AND ".join(conditions_list) if conditions_list else None
 
         with Timer() as t:
-            tickets = self.api.get_tickets(conditions=conditions)
+            #  apply pagination limit
+            tickets = self.api.get_tickets(
+                conditions=conditions,
+                page_size=limit,
+                page=1
+            )
 
         return tickets[:limit], t.ms()

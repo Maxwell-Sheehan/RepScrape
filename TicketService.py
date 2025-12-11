@@ -7,20 +7,22 @@ class TicketService:
     def __init__(self, api_client):
         self.api = api_client
 
-    def get_tickets_for_user(self, username):
+    def get_tickets_for_user(self, username, limit=10):
         """
-        Returns tickets where owner.identifier matches the username
-        (case-insensitive, whitespace trimmed).
+        Returns tickets where owner.identifier matches the username.
         """
         username = username.strip()
 
         # ConnectWise 'contains' handles partial matches & case insensitivity
-        conditions = f"owner/identifier contains \"{username}\""
+        conditions = f'owner/identifier contains "{username}"'
 
-        # ---- ADDED TIMER (minimal change) ----
         with Timer() as t:
-            tickets = self.api.get_tickets(conditions=conditions)
-        # --------------------------------------
+           #increase page limit for dropdown
+            tickets = self.api.get_tickets(
+                conditions=conditions,
+                page_size=limit,
+                page=1
+            )
 
-        # Return newest 10 + timing
-        return tickets[:10], t.ms()
+        # Return only requested amount + timing
+        return tickets[:limit], t.ms()
