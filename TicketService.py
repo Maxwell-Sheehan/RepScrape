@@ -9,7 +9,8 @@ class TicketService:
 
     def get_tickets_for_user(self, username, limit=10):
         """
-        Returns tickets where owner.identifier matches the username.
+        Returns tickets where owner.identifier matches the username
+        and returns only the number specified by `limit`.
         """
         username = username.strip()
 
@@ -17,12 +18,11 @@ class TicketService:
         conditions = f'owner/identifier contains "{username}"'
 
         with Timer() as t:
-           #increase page limit for dropdown
+            # pass page_size so API returns up to `limit`
             tickets = self.api.get_tickets(
                 conditions=conditions,
                 page_size=limit,
                 page=1
             )
 
-        # Return only requested amount + timing
         return tickets[:limit], t.ms()

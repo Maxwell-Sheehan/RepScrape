@@ -32,7 +32,7 @@ class TicketStatusService:
         conditions = " AND ".join(conditions_list) if conditions_list else None
 
         with Timer() as t:
-            #  apply pagination limit
+            # Minimal: pass page_size so API returns correct number
             tickets = self.api.get_tickets(
                 conditions=conditions,
                 page_size=limit,

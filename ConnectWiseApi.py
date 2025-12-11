@@ -15,7 +15,7 @@ class ConnectWiseAPIClient:
         self.headers = {
             "clientId": self.client_id,
             "Content-Type": "application/json",
-            "companyIdentifier": self.company_identifier   # ✔ REQUIRED FIX
+            "companyIdentifier": self.company_identifier
         }
 
     # --------------------------
@@ -26,11 +26,9 @@ class ConnectWiseAPIClient:
         params = {"conditions": f"identifier='{identifier}'"}
         response = requests.get(url, headers=self.headers, auth=self.auth, params=params)
         response.raise_for_status()
-
         results = response.json()
         if not results:
             raise ValueError(f"No company found for identifier {identifier}")
-
         company_obj = results[0]
         return {
             "id": company_obj["id"],
@@ -44,14 +42,11 @@ class ConnectWiseAPIClient:
     def get_company_site(self, company_id, site_name):
         url = f"{self.base_url}/company/companies/{company_id}/sites"
         params = {"conditions": f"name='{site_name}'"}
-
         response = requests.get(url, headers=self.headers, auth=self.auth, params=params)
         response.raise_for_status()
-
         results = response.json()
         if not results:
             raise ValueError(f"No site '{site_name}' found for company {company_id}")
-
         site_obj = results[0]
         return {
             "id": site_obj["id"],
@@ -68,6 +63,31 @@ class ConnectWiseAPIClient:
         return response.json()
 
     # --------------------------
+    # GET BOARDS
+    # --------------------------
+    def get_boards(self):
+        """
+        Returns a list of boards. Each entry is the raw JSON object returned by CW.
+        """
+        url = f"{self.base_url}/service/boards"
+        # You can add ordering or filtering as needed, e.g. params={"orderBy": "name"}
+        response = requests.get(url, headers=self.headers, auth=self.auth)
+        response.raise_for_status()
+        return response.json()
+
+    # --------------------------
+    # GET STATUSES FOR A BOARD
+    # --------------------------
+    def get_statuses(self, board_id):
+        """
+        Given a board id, return its statuses.
+        """
+        url = f"{self.base_url}/service/boards/{board_id}/statuses"
+        response = requests.get(url, headers=self.headers, auth=self.auth)
+        response.raise_for_status()
+        return response.json()
+
+    # --------------------------
     # GET TICKETS
     # --------------------------
     def get_tickets(self, conditions=None, page=1, page_size=25,
@@ -79,8 +99,8 @@ class ConnectWiseAPIClient:
         params = {
             "page": page,
             "pageSize": page_size,
-            "orderBy": "lastUpdated DESC",
-            "expand": "owner,board,team,assignedMember,member,resources",
+            "orderBy": "lastUpdated DESC" if not order_by else order_by,
+            "expand": "owner,board,team,assignedMember,member,resources" if not expand else expand,
             "fields": (
                 "id,"
                 "summary,"
@@ -89,10 +109,10 @@ class ConnectWiseAPIClient:
                 "board/name,"
                 "team/name,"
                 "lastUpdated"
-            )
-
+            ) if not fields else fields
         }
 
+        # Use explicit overrides if provided above
         if order_by:
             params["orderBy"] = order_by
         if expand:
@@ -111,4 +131,3 @@ class ConnectWiseAPIClient:
 
         response.raise_for_status()
         return response.json()
-
