@@ -94,17 +94,34 @@ class AppSidebarDark:
         self.search_button = ttk.Button(self.sidebar, text="Search", command=self.start_unified_search)
         self.search_button.pack(fill="x", pady=(10, 10))
 
-        # Duration
+        # Progress bar (just instantiate)
+        self.progress = ProgressIndicator(self.sidebar)
+
+        # Duration label
         self.duration_label = ttk.Label(self.sidebar, text="")
         self.duration_label.pack(anchor="w", pady=(6, 0))
 
-        # Output
-        self.progress = ProgressIndicator(self.main)
+        # --- Scrollable Text Output ---
+        output_frame = tk.Frame(self.main, bg=DARK_BG)
+        output_frame.pack(fill="both", expand=True)
+
+        # Scrollbar (thicker)
+        scrollbar = tk.Scrollbar(output_frame, width=18)  # try 12,16,18,20,24
+        scrollbar.pack(side="right", fill="y")
+
         self.output_box = tk.Text(
-            self.main, bg="#111316", fg=DARK_TEXT,
-            insertbackground=DARK_TEXT, wrap="word", padx=8, pady=8
+            output_frame,
+            bg="#111316",
+            fg=DARK_TEXT,
+            insertbackground=DARK_TEXT,
+            wrap="word",
+            padx=8,
+            pady=8,
+            yscrollcommand=scrollbar.set
         )
-        self.output_box.pack(fill="both", expand=True)
+        self.output_box.pack(side="left", fill="both", expand=True)
+
+        scrollbar.config(command=self.output_box.yview)
 
     # ----------------------------------------------------
     # Status dropdown updater
@@ -153,6 +170,11 @@ class AppSidebarDark:
 
             log(f"Received {len(tickets)} tickets")
 
+            # TEMP DEBUG
+            if tickets:
+                first_id = tickets[0]["id"]
+                self.api_client.debug_get_full_ticket(first_id)
+
             self.root.after(0, lambda: self.display_tickets(tickets, "Unified Search"))
             self.root.after(0, lambda: self.duration_label.config(text=f"Results: {len(tickets)} tickets"))
 
@@ -161,6 +183,28 @@ class AppSidebarDark:
 
         finally:
             self.root.after(0, self.progress.stop)
+
+    def extract_identifiers(self, text):
+        identifiers = {}
+
+        patterns = {
+            "Equipment Ticket": r"EQUIPMENTTICKET:\s*(\d+)",
+            "Mobility Ticket": r"MOBILITY TICKET:\s*(\d+)",
+            "SIM ID": r"SIM\s*1\s*ID:\s*([0-9]+)",
+            "TN": r"TN:\s*([0-9]+)",
+            "IP Address": r"IP Address:\s*([\d\.]+)",
+            "Subnet Mask": r"Subnet Mask:\s*([\d\.]+)",
+            "Default Gateway": r"Default Gateway:\s*([\d\.]+)",
+            "MAC Address": r"Mac:\s*([0-9A-Fa-f]+)",
+        }
+
+        import re
+        for label, pattern in patterns.items():
+            match = re.search(pattern, text)
+            if match:
+                identifiers[label] = match.group(1)
+
+        return identifiers
 
     # ----------------------------------------------------
     # Ticket Renderer
@@ -182,28 +226,46 @@ class AppSidebarDark:
             status = t.get("status", {}).get("name", "")
             board = t.get("board", {}).get("name", "")
 
-            # Description selection
-            description = (
-                    t.get("initialDescription")
-                    or t.get("description")
-                    or t.get("internalAnalysis")
-                    or t.get("resolution")
-                    or ""
-            )
+            # ------------------------------------------------
+            # Initial Description (fetched from notes)
+            # ------------------------------------------------
+            description = ""
 
-            # Notes fallback
-            notes = t.get("notes", [])
-            if not description and isinstance(notes, list) and notes:
-                description = notes[0].get("text", "").strip()
+            try:
+                notes = self.api_client.get_ticket_notes(
+                    tid,
+                    detail=True,
+                    internal=False,
+                    resolution=False
+                )
+
+                for note in notes:
+                    if note.get("detailDescriptionFlag"):
+                        description = note.get("text", "").strip()
+                        break
+
+            except Exception as e:
+                log(f"Failed to fetch notes for ticket {tid}: {e}")
+
+            identifiers = self.extract_identifiers(description)
 
             self.output_box.insert(
                 tk.END,
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Ticket # {tid}\n"
                 f"Summary      : {summary}\n"
                 f"Owner        : {owner}\n"
                 f"Company      : {company} ({company_id})\n"
                 f"Status       : {status}\n"
                 f"Board        : {board}\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             )
+
+            # ---- Identifiers (if present) ----
+            if identifiers:
+                self.output_box.insert(tk.END, "Identifiers:\n")
+                for k, v in identifiers.items():
+                    self.output_box.insert(tk.END, f"  {k}: {v}\n")
+                self.output_box.insert(tk.END, "\n")
+
+            # ---- Full description ----
+            self.output_box.insert(tk.END, f"{description}\n\n")

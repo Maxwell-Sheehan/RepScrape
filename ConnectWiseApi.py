@@ -11,6 +11,11 @@ class ConnectWiseAPIClient:
         self.client_id = client_id
         self.company_identifier = company
 
+        # Ticket detail flags
+        self.detailDescriptionFlag = False
+        self.internalAnalysisFlag = True
+        self.resolutionFlag = False
+
         self.headers = {
             "clientId": self.client_id,
             "Content-Type": "application/json",
@@ -80,9 +85,11 @@ class ConnectWiseAPIClient:
         params = {
             "expand": "owner,company,board,notes,contact,team,documents",
             "fields": (
-                "id,summary,description,initialDescription,internalAnalysis,"
-                "resolution,notes,status,board,company,owner,contact,team,documents"
-            )
+                "id,summary,status/name,board/name,"
+                "company/name,company/identifier,"
+                "owner/identifier"
+            ),
+
         }
 
         log("===== DEBUG FULL TICKET REQUEST =====")
@@ -139,7 +146,12 @@ class ConnectWiseAPIClient:
             "fields": fields or (
                 "id,summary,description,initialDescription,internalAnalysis,resolution,"
                 "notes,owner/identifier,status/name,board/name,company/name,company/identifier"
-            )
+            ),
+
+            # Add the new flags
+            "detailDescriptionFlag": self.detailDescriptionFlag,
+            "internalAnalysisFlag": self.internalAnalysisFlag,
+            "resolutionFlag": self.resolutionFlag,
         }
 
         # If conditions is present, we must manually append it
@@ -152,3 +164,38 @@ class ConnectWiseAPIClient:
 
         response.raise_for_status()
         return response.json()
+
+    def get_ticket_notes(self, ticket_id,
+                         detail=True,
+                         internal=False,
+                         resolution=False):
+
+        url = f"{self.base_url}/service/tickets/{ticket_id}/notes"
+
+        params = {
+            "detailDescriptionFlag": detail,
+            "internalAnalysisFlag": internal,
+            "resolutionFlag": resolution,
+            "orderBy": "dateCreated asc"
+        }
+
+        response = requests.get(
+            url,
+            headers=self.headers,
+            auth=self.auth,
+            params=params
+        )
+
+        response.raise_for_status()
+        return response.json()
+
+    def get_initial_description(self, ticket_id):
+        notes = self.get_ticket_notes(ticket_id, detail=True)
+
+        for note in notes:
+            if note.get("detailDescriptionFlag"):
+                return note.get("text")
+
+        return None
+
+
