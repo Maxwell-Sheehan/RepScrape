@@ -154,13 +154,15 @@ class ConnectWiseAPIClient:
             "resolutionFlag": self.resolutionFlag,
         }
 
-        # If conditions is present, we must manually append it
         if conditions:
-            query = requests.models.RequestEncodingMixin._encode_params(params)
-            url = f"{url}?{query}&conditions={conditions}"
-            response = requests.get(url, headers=self.headers, auth=self.auth)
-        else:
-            response = requests.get(url, headers=self.headers, auth=self.auth, params=params)
+            params["conditions"] = conditions
+
+        response = requests.get(
+            url,
+            headers=self.headers,
+            auth=self.auth,
+            params=params
+        )
 
         response.raise_for_status()
         return response.json()

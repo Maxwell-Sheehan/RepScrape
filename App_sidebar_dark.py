@@ -8,6 +8,8 @@ from TicketService import TicketService
 from TicketStatusService import TicketStatusService
 from ProgressIndicator import ProgressIndicator
 from log import log
+from orderby import OrderBy
+
 
 
 class AppSidebarDark:
@@ -90,6 +92,20 @@ class AppSidebarDark:
         )
         self.status_entry.pack(fill="x", pady=(0, 10))
 
+        # Order By
+        ttk.Label(self.sidebar, text="Order").pack(anchor="w")
+
+        self.order_var = tk.StringVar(value="Newest First")
+
+        self.order_entry = ttk.Combobox(
+            self.sidebar,
+            textvariable=self.order_var,
+            values=["Newest First", "Oldest First"],
+            state="readonly",
+            font=("Segoe UI", 11)
+        )
+        self.order_entry.pack(fill="x", pady=(0, 10))
+
         # Search button
         self.search_button = ttk.Button(self.sidebar, text="Search", command=self.start_unified_search)
         self.search_button.pack(fill="x", pady=(10, 10))
@@ -141,22 +157,7 @@ class AppSidebarDark:
         Thread(target=self._unified_search, daemon=True).start()
 
     def _unified_search(self):
-        company = self.company_entry.get().strip()
-        username = self.user_entry.get().strip()
-        board = self.board_entry.get().strip()
-        status = self.status_entry.get().strip()
-
-        conditions = []
-        if company:
-            conditions.append(f'(company/name contains "{company}" OR company/identifier contains "{company}")')
-        if username:
-            conditions.append(f'owner/identifier contains "{username}"')
-        if board:
-            conditions.append(f'board/name="{board}"')
-        if status:
-            conditions.append(f'status/name="{status}"')
-
-        full_conditions = " AND ".join(conditions) if conditions else None
+        full_conditions = self.build_conditions()
 
         log(f"Unified search conditions = {full_conditions}")
 
@@ -165,6 +166,7 @@ class AppSidebarDark:
                 conditions=full_conditions,
                 page=1,
                 page_size=50,
+                order_by=self.get_order_by(),
                 full_response=True
             )
 
@@ -176,13 +178,39 @@ class AppSidebarDark:
                 self.api_client.debug_get_full_ticket(first_id)
 
             self.root.after(0, lambda: self.display_tickets(tickets, "Unified Search"))
-            self.root.after(0, lambda: self.duration_label.config(text=f"Results: {len(tickets)} tickets"))
+            self.root.after(
+                0,
+                lambda: self.duration_label.config(text=f"Results: {len(tickets)} tickets")
+            )
 
         except Exception as e:
-            self.root.after(0, lambda e=e: self.output_box.insert(tk.END, f"Error: {e}\n"))
+            self.root.after(
+                0,
+                lambda e=e: self.output_box.insert(tk.END, f"Error: {e}\n")
+            )
 
         finally:
             self.root.after(0, self.progress.stop)
+
+    def build_conditions(self):
+        conditions = []
+
+        if company := self.company_entry.get().strip():
+            conditions.append(
+                f'(company/name contains "{company}" '
+                f'OR company/identifier contains "{company}")'
+            )
+
+        if username := self.user_entry.get().strip():
+            conditions.append(f'owner/identifier contains "{username}"')
+
+        if board := self.board_entry.get().strip():
+            conditions.append(f'board/name="{board}"')
+
+        if status := self.status_entry.get().strip():
+            conditions.append(f'status/name="{status}"')
+
+        return " AND ".join(conditions) if conditions else None
 
     def extract_identifiers(self, text):
         identifiers = {}
@@ -205,6 +233,13 @@ class AppSidebarDark:
                 identifiers[label] = match.group(1)
 
         return identifiers
+
+    def get_order_by(self):
+        return (
+            OrderBy.newest_first()
+            if self.order_var.get() == "Newest First"
+            else OrderBy.oldest_first()
+        )
 
     # ----------------------------------------------------
     # Ticket Renderer
